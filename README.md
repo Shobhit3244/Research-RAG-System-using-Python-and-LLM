@@ -1,10 +1,3 @@
-(Due to technical issues, the search service is temporarily unavailable.)
-
-Apologies for the confusion earlier! Let me provide you with a **complete and clean README.md** file for your Research Assistant RAG System project. This will include all the necessary details, code snippets, and instructions in proper Markdown format.
-
----
-
-```markdown
 # Research Assistant RAG System
 
 A **Retrieval-Augmented Generation (RAG)** system designed to assist researchers by extracting and analyzing information from research papers (PDFs). The system can extract text and images from PDFs, retrieve relevant information, and generate answers to user queries using a Large Language Model (LLM).
