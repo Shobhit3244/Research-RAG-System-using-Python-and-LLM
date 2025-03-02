@@ -6,7 +6,7 @@ from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from llama_index.core.agent import ReActAgent
 from llama_index.llms.openai import OpenAI
 from pdf import QEngines
-from prompts import new_prompt, instruction_str, context
+from prompts import new_prompt, research_paper_prompt, summary_prompt, data_extraction_prompt, qa_prompt, context
 from note_engine import note_engine
 
 load_dotenv()

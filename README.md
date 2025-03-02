@@ -1,18 +1,17 @@
-# Research Assistant RAG System
+# Research RAG System using Python and LLM
 
-A **Retrieval-Augmented Generation (RAG)** system designed to assist researchers by extracting and analyzing information from research papers (PDFs). The system can extract text and images from PDFs, retrieve relevant information, and generate answers to user queries using a Large Language Model (LLM).
+A **Retrieval-Augmented Generation (RAG)** system designed to assist researchers by extracting insights and data from research papers (PDFs). The system uses **LlamaIndex** and **OpenAI's GPT-3.5-turbo** to query research papers, summarize content, and extract specific data.
 
 ---
 
 ## Features
 
-- **PDF Text Extraction**: Extract text from research papers using `PyMuPDF`.
-- **Image Extraction**: Extract images from PDFs and perform OCR (Optical Character Recognition) using `pytesseract`.
+- **PDF Text Extraction**: Extract text from research papers using `PyPDF`.
 - **Retrieval-Augmented Generation (RAG)**:
   - Generate embeddings for text and image metadata using `sentence-transformers`.
   - Retrieve relevant information using FAISS for similarity search.
-  - Generate answers using a pre-trained LLM (e.g., GPT-2).
-- **API Integration**: Expose the system as a REST API using Flask.
+  - Generate answers using a pre-trained LLM (e.g., GPT-3.5-turbo).
+- **Note Saving**: Save user notes to a file for future reference.
 
 ---
 
@@ -20,142 +19,46 @@ A **Retrieval-Augmented Generation (RAG)** system designed to assist researchers
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/your-username/research-assistant-rag-system.git
-   cd research-assistant-rag-system
+   git clone https://github.com/Shobhit3244/Research-RAG-System-using-Python-and-LLM.git
+   cd Research-RAG-System-using-Python-and-LLM
    ```
 
 2. **Install Dependencies**:
    ```bash
-   pip install transformers faiss-cpu sentence-transformers flask PyMuPDF pytesseract pillow
+   pip install -r requirements.txt
    ```
 
-3. **Install Tesseract OCR**:
-   - Download and install Tesseract OCR from [here](https://github.com/tesseract-ocr/tesseract).
-   - Add Tesseract to your system PATH.
+3. **Set Up Environment Variables**:
+   - Create a `.env` file in the root directory and add your OpenAI API key:
+     ```plaintext
+     OPENAI_API_KEY=your_openai_api_key
+     ```
 
 ---
 
 ## Usage
 
-### Step 1: Extract Text and Images from PDFs
+### Step 1: Add Research Papers
 Place your research paper PDFs in the `data/` directory.
 
-```python
-import fitz  # PyMuPDF
-from PIL import Image
-import pytesseract
-
-def extract_text_from_pdf(pdf_path):
-    doc = fitz.open(pdf_path)
-    text = ""
-    for page in doc:
-        text += page.get_text()
-    return text
-
-def extract_images_from_pdf(pdf_path):
-    doc = fitz.open(pdf_path)
-    images = []
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        image_list = page.get_images(full=True)
-        for img in image_list:
-            xref = img[0]
-            base_image = doc.extract_image(xref)
-            image_bytes = base_image["image"]
-            images.append(image_bytes)
-    return images
-
-def extract_text_from_image(image_bytes):
-    image = Image.open(image_bytes)
-    text = pytesseract.image_to_string(image)
-    return text
-
-# Example usage
-pdf_text = extract_text_from_pdf("data/research_paper.pdf")
-pdf_images = extract_images_from_pdf("data/research_paper.pdf")
-for i, img in enumerate(pdf_images):
-    text = extract_text_from_image(img)
-    print(f"Text from image {i}:\n{text}\n")
-```
-
-### Step 2: Build the RAG System
-Run the RAG system to retrieve and generate answers.
-
-```python
-from sentence_transformers import SentenceTransformer
-import faiss
-import numpy as np
-from transformers import pipeline
-
-# Load models
-embedder = SentenceTransformer('all-MiniLM-L6-v2')
-generator = pipeline("text-generation", model="gpt2")
-
-# Generate embeddings for text and image metadata
-text_embeddings = embedder.encode([pdf_text])
-image_metadata = [extract_text_from_image(img) for img in pdf_images]
-image_embeddings = embedder.encode(image_metadata)
-
-# Build a FAISS index
-all_embeddings = np.vstack([text_embeddings, image_embeddings])
-dimension = all_embeddings.shape[1]
-index = faiss.IndexFlatL2(dimension)
-index.add(all_embeddings)
-
-def retrieve_information(query, top_k=3):
-    query_embedding = embedder.encode([query])
-    distances, indices = index.search(query_embedding, top_k)
-    results = []
-    for i in indices[0]:
-        if i < len(text_embeddings):
-            results.append(("text", pdf_text))
-        else:
-            results.append(("image", pdf_images[i - len(text_embeddings)]))
-    return results
-
-def generate_answer(query, context):
-    prompt = f"Question: {query}\nContext: {context}\nAnswer:"
-    answer = generator(prompt, max_length=100, num_return_sequences=1)
-    return answer[0]['generated_text']
-
-# Example query
-query = "What is the main contribution of this paper?"
-retrieved_results = retrieve_information(query)
-context = " ".join([result for result_type, result in retrieved_results if result_type == "text"])
-answer = generate_answer(query, context)
-print("Generated Answer:", answer)
-```
-
-### Step 3: Run the Flask API
-Start the Flask API to interact with the RAG system.
-
-```python
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    data = request.json
-    query = data.get("query")
-    retrieved_results = retrieve_information(query)
-    context = " ".join([result for result_type, result in retrieved_results if result_type == "text"])
-    answer = generate_answer(query, context)
-    image_results = [result for result_type, result in retrieved_results if result_type == "image"]
-    return jsonify({"query": query, "answer": answer, "image_results": len(image_results)})
-
-if __name__ == '__main__':
-    app.run(debug=True)
-```
-
-Run the Flask app:
+### Step 2: Run the Application
+Start the application by running:
 ```bash
-python app.py
+python main.py
 ```
 
-Send a POST request to the `/predict` endpoint:
-```bash
-curl -X POST "http://127.0.0.1:5000/predict" -H "Content-Type: application/json" -d '{"query": "What is the main contribution of this paper?"}'
+### Step 3: Interact with the System
+- Enter your query at the prompt. For example:
+  ```
+  Enter a prompt (or q to Quit): What is the main contribution of this paper?
+  ```
+- The system will retrieve relevant information from the research papers and generate an answer.
+
+### Step 4: Save Notes
+You can save notes by using the `note_saver` tool. For example:
+```
+Enter a prompt (or q to Quit): Save note: The paper discusses a novel algorithm for image segmentation.
+Note Saved
 ```
 
 ---
@@ -163,13 +66,39 @@ curl -X POST "http://127.0.0.1:5000/predict" -H "Content-Type: application/json"
 ## Project Structure
 
 ```
-research-assistant-rag-system/
-├── data/                   # Directory for research paper PDFs
-├── app.py                  # Flask API for the RAG system
-├── pdf_utils.py            # Utility functions for PDF text and image extraction
-├── rag_system.py           # Core RAG system implementation
+Research-RAG-System-using-Python-and-LLM/
+├── data/                   # Directory for research paper PDFs and notes
+├── main.py                 # Main script to run the application
+├── pdf.py                  # Handles PDF loading, indexing, and querying
+├── note_engine.py          # Tool for saving user notes
+├── prompts.py              # Custom prompt templates for the agent
 ├── requirements.txt        # List of dependencies
-└── README.md               # Project documentation
+├── README.md               # Project documentation
+└── .env                    # Environment variables (e.g., OpenAI API key)
+```
+
+---
+
+## Custom Prompt Templates
+
+The `prompts.py` file contains custom prompt templates for the agent. These templates are designed to help the agent extract insights and data from research papers. For example:
+
+```python
+research_paper_prompt = PromptTemplate(
+    """\
+You are a research assistant analyzing the following research paper:
+---------------------
+{context_str}
+---------------------
+
+User Query: {query_str}
+
+Instructions:
+{instruction_str}
+
+Answer:
+"""
+)
 ```
 
 ---
@@ -178,22 +107,19 @@ research-assistant-rag-system/
 
 - Python 3.8+
 - Libraries:
-  - `transformers`
-  - `faiss-cpu`
+  - `llama-index`
+  - `openai`
+  - `PyPDF`
   - `sentence-transformers`
-  - `flask`
-  - `PyMuPDF`
-  - `pytesseract`
-  - `Pillow`
+  - `python-dotenv`
 
 ---
 
 ## Future Enhancements
 
-1. **Support for Multiple PDFs**: Scale the system to handle multiple research papers.
-2. **Advanced OCR**: Use state-of-the-art OCR models for better text extraction.
-3. **Better LLMs**: Integrate GPT-3.5 or GPT-4 for improved answer generation.
-4. **Deployment**: Containerize the app using Docker and deploy it on a cloud platform.
+1. **Support for More File Types**: Extend the system to handle other document formats (e.g., Word, Excel).
+2. **Advanced Querying**: Add support for complex queries involving multiple documents.
+3. **Deployment**: Containerize the app using Docker and deploy it on a cloud platform.
 
 ---
 
@@ -211,14 +137,10 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Acknowledgments
 
-- [Hugging Face](https://huggingface.co/) for pre-trained models and libraries.
-- [FAISS](https://github.com/facebookresearch/faiss) for efficient similarity search.
-- [PyMuPDF](https://pymupdf.readthedocs.io/) for PDF text and image extraction.
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) for optical character recognition.
-
+- [LlamaIndex](https://gpt-index.readthedocs.io/) for the RAG framework.
+- [OpenAI](https://openai.com/) for the GPT-3.5-turbo model.
 ---
 
 ## Contact
 
-For questions or feedback, please contact [Shobhit Kundu] at [shobhitkundu@gmail.com](mailto:shobhitkundu@gmail.com).
-``` 
+For questions or feedback, please contact [Shobhit](https://github.com/Shobhit3244) or drop a mail to [shobhitkundu@gmail.com](mailto:shobhitkundu@gmail.com).
